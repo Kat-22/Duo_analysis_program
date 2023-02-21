@@ -8,13 +8,8 @@ Command Line Version of Code
 #Assume already in correct folder in directory
 
 #Import libraries
-import os, sys, csv, numpy as np, matplotlib.pyplot as plt
-import warnings
-import subprocess
-import math
+import os, sys, numpy as np
 from scipy.optimize import curve_fit 
-from scipy import stats
-from pylab import *
 
 #Create Subfolder for extracted then sorted folders
 def create_folder():
@@ -22,8 +17,9 @@ def create_folder():
     if not os.path.exists(f"{CWD}/Extracted_Files/Sorted"):
         os.makedirs(f"{CWD}/Extracted_Files/Sorted")
 
-#Extract OUTput files and convert to list only (.txt file)
+#Extract OUTput files and convert to list only (.out file)
 def extract_file_out():
+    create_folder()
     File_Directory= os.getcwd()
     for file in os.listdir(File_Directory):        
         splitfile = os.path.splitext(file)
@@ -43,16 +39,14 @@ def extract_file_out():
                           f.write(writeline)
               readingfile.close()
               
-#INPut to OUTput if INP files then to list only (.txt file): (extend to generation?)
+#INPut to OUTput if INP files then to list only (.out file):
 def run_duo(): 
     File_Directory = os.getcwd()
     for file in os.listdir(File_Directory):
         splitfile = os.path.splitext(file)
         if splitfile[1]==".inp":
-            print(file)
             outputfile = f"{splitfile[0]}.out"
             cmd = (f"duo_dos2.exe < {file} > {outputfile}")
-            print(cmd)
             os.system(cmd)
             
 def extract_file_inp():
@@ -140,13 +134,13 @@ def generate_input_files(atoms, molecule, nstates, Jmax, N, L, template_file):
     i = 1
     for L_val in L:
         get_input_files(atoms, molecule, nstates, Jmax, N, L_val, Res, template_file)
-        print(f"{i} of {len(L)}")
+        print(f"{i} of {len(L)}") #numebr of input files generated
         i = i+1
-    create_folder()
     
 
-#Extract other file to txt file
+#Extract other file to out file -> used for log/grebbed/zipped energy data
 def extract_file_other(file_type):
+    create_folder()
     File_Directory= os.getcwd()
     for file in os.listdir(File_Directory):        
         splitfile = os.path.splitext(file)
@@ -167,7 +161,7 @@ def extract_file_other(file_type):
                   print(i)
               readingfile.close()
 
-#Sort files into split by state
+#Sort files -> split by state
 def get_keys_sorted():
     File_Dir= os.getcwd()
     File_Directory = f"{File_Dir}/Extracted_Files"
@@ -178,6 +172,8 @@ def get_keys_sorted():
             reading_file = open(f"{File_Directory}/{file}","r")
             props = splitfile[0].split("_")
             molecule = props[0]
+            #-----------------------------------------------------
+            #From here to line check this makes sense with the filename!!!
             L_extra = props[2]
             L = L_extra.strip("L")
             for line in reading_file:
@@ -186,17 +182,18 @@ def get_keys_sorted():
                 new_file_name_list = [molecule]
                 line_parts[-1] = line_parts[-1].strip("||")
                 line_parts[-1] = line_parts[-1].strip("\n")
-                new_file_name_list.append(line_parts[-1])
-                new_file_name_list.append(line_parts[-2])
-                new_file_name_list.append(line_parts[0])
-                new_file_name_list.append(line_parts[4])
-                new_file_name_list.append(line_parts[-3])
+                new_file_name_list.append(line_parts[-1]) #this is the state
+                new_file_name_list.append(line_parts[-2]) #this is the polarity
+                new_file_name_list.append(line_parts[0])  #this is the j value
+                new_file_name_list.append(line_parts[4])  #this is the v value
+                new_file_name_list.append(line_parts[-3]) #this is the omega value
                 new_file_name = "&".join(new_file_name_list)
                 line_to_write = []
-                line_to_write.append(L)
-                line_to_write.append(line_parts[2])
+                line_to_write.append(L)                   #this is the L value
+                line_to_write.append(line_parts[2])       #this is the energy value
                 line_to_write.append("\n")
                 line_write = " ".join(line_to_write)
+            #------------------------------------------
                 check_counter = 0
                 with open(f"./Extracted_Files/Sorted/{new_file_name}.out", "a") as e:
                     check_counter = check_counter
@@ -208,10 +205,10 @@ def get_keys_sorted():
                     with open(f"./Extracted_Files/Sorted/{new_file_name}.out", "a") as g:
                         g.write(line_write)
             i = i+1
-            print(i)
+            print(i) # number of files you have dealt with
 
 #GET DATA AND MODELS
-def get_x_y(file):
+def get_x_y(file): #Gets a list of Ls and energies for the state required
     L_list = []
     Energy_list = []
     with open(file, "r") as reading_file:
@@ -222,11 +219,11 @@ def get_x_y(file):
             Title = os.path.splitext(file)[0].replace("&", " ")
     return(L_list, Energy_list, Title)
 
-def lorentzian(energy, constant, energy_mean, energy_gamma):
+def lorentzian(energy, constant, energy_mean, energy_gamma): #Lorentzian function
     l_fit =  constant*(energy_gamma/((energy-energy_mean)**2 + energy_gamma**2))
     return(l_fit)
 
-def get_loren_fit(Energy_list):
+def get_loren_fit(Energy_list): #Generate histogram of energy and fit lorentzian function to it
     energy_freq, energy_bins = np.histogram(Energy_list, int(len(Energy_list)/6)+1)
     energy_freq = energy_freq/sum(energy_freq)
     energy_values = []
@@ -240,19 +237,19 @@ def get_loren_fit(Energy_list):
     try:
         params2, matrix = curve_fit(lorentzian, energy_values, energy_freq, p0=[max_e,energy_mean,energy_gamma]) 
         matsd = np.sqrt(np.diag(matrix))
-    except RuntimeError:
+    except RuntimeError: #If the fitting breaks it will not generate parameters
         params2 = [0,0,0]
         matsd = [0,0,0]
     except TypeError:
         params2 = [0,0,0]
         matsd = [0,0,0]
-    #check for if the fit is bad (standard deviation of fits from oint >100)    
+    #check for if the fit is bad (standard deviation of fits from point >1)    
     if matsd[2] > 1:
         params2 = [0,0,0]
         matsd = [0,0,0]
     return energy_freq, energy_values, params2, matsd
 
-def get_loren_fit_small(Energy_list):
+def get_loren_fit_small(Energy_list): # as above for very thin lines with little broadening -> i.e. v = 0
     energy_freq, energy_bins = np.histogram(Energy_list, int(len(Energy_list)/0.4)+1)
     energy_freq = energy_freq/sum(energy_freq)
     energy_values = []
@@ -279,23 +276,24 @@ def get_loren_fit_small(Energy_list):
     except TypeError:
         params2 = [0,0,0]
         matsd = [0,0,0]
-    if matsd[2] > 0.1:
+    if matsd[2] > 0.1: # smaller allowance here
         params2 = [0,0,0]
         matsd = [0,0,0]
     return energy_freq, energy_values, params2, matsd
 
-def get_line_broadening_l(params2,matsd):
+def get_line_broadening_l(params2,matsd): #get gamma (HWHM) and standard deviation
+    FWHM = 2*params2[2]
     HWHM = params2[2]
     HWHM = abs(HWHM)
     SD = matsd[2]
     return HWHM, SD
 
-def plot_graph(Title, params2, matsd):
+def plot_graph(Title, params2, matsd): #no plotting here because to see on command line you would have ot close every single plot individually before moving on -> see single state analysis file for command line figure analysis
             if [params2[0], params2[1], params2[2]]== [0,0,0]:
                 params2 = params2
             else:
                 HWHM_l, SD = get_line_broadening_l(params2,matsd)
-                print(f"{Title}: {HWHM_l:.6f} ± {SD:.6f}")
+                print(f"{Title}: {HWHM_l:.6f} ± {SD:.6f}") #rounding to an appropriate number
            
             
 #Run Program
@@ -330,7 +328,6 @@ def analysis(state):
                 plot_graph(Title, params2, matsd)
         except IndexError:
             state = state
-    #plt.show(block = False)
     os.chdir("..")
     os.chdir("..")
 
