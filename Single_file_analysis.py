@@ -3,12 +3,8 @@
 Single state analysis
 @author: Kathryn
 """
-import os, sys, csv, numpy as np, matplotlib.pyplot as plt
-import warnings
-import math
+import os, sys, numpy as np, matplotlib.pyplot as plt
 from scipy.optimize import curve_fit 
-from scipy import stats
-from pylab import *
 
 #print help if required
 def helpme():
