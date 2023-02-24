@@ -49,6 +49,18 @@ def check_inputs_no_file(inputs):
         sys.exit("Please ensure you have entered the required number of inputs (1 or 5). Use 'help' command for more details ")
 
 #GET DATA AND MODELS
+def remove_anomalies(Energy_list, L_list): #this takes results that different from the spread by a value of more than 500 and considers them anomalous.
+    Energy_ave = sum(Energy_list)/len(Energy_list)
+    Energy_list_new = []
+    L_list_new = []
+    for i in range(len(Energy_list)): #checking for strange deviations from the normal
+        if abs(Energy_list[i]-Energy_ave)>100: #if the difference is too significant discard 
+            Energy_ave = Energy_ave
+        else:
+            Energy_list_new.append(Energy_list[i])
+            L_list_new.append(L_list[i])
+    return(Energy_list_new, L_list_new)
+
 def get_x_y(file):
     L_list = []
     Energy_list = []
@@ -161,6 +173,7 @@ def single_file_analysis(inputs):
                 name_file_split = name_file.split("&")
                 if name_file == file_name:
                     L_list, Energy_list, Title = get_x_y(file)
+                    (Energy_list, L_list) = remove_anomalies(Energy_list, L_list)
                     if int(name_file_split[4]) == 0:
                         energy_freq, energy_values, params2, matsd = get_loren_fit_small(Energy_list)
                     else:
