@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-FULL CODE FOR DATA EXTRACTION AND ANALYSIS
-@author: Kathryn Saunders
+FULL CODE FOR DATA EXTRACTION AND ANALYSIS - PYTHON VERSION
+@author: Kathryn
 """
 #Import libraries
 import os, numpy as np, matplotlib.pyplot as plt
@@ -80,7 +80,7 @@ def run_duo():
             os.system(cmd)
             
 def extract_file_inp():
-    correct_dictionary()
+    correct_directory()
     #No option for generation here  
     run_duo()
     extract_file_out()
@@ -118,11 +118,11 @@ def get_keys_sorted():
         splitfile = os.path.splitext(file)
         if splitfile[1]==".out":
             reading_file = open(f"{File_Directory}/{file}","r")
-            props = splitfile[0].split("_")
-            molecule = props[0]
             #-----------------------------------------------------
-            #From here to line check this makes sense with the filename!!!
-            L_extra = props[2]
+            #From here to line check this makes sense with the file extraction!!!
+            props = splitfile[0].split("_")               #this splits the filename by "_" to get molecule name and L value
+            molecule = props[0]                           #this is the molecule name
+            L_extra = props[1]                            #this is the L value
             L = L_extra.strip("L")
             for line in reading_file:
                 line_parts = line.split(" ")
@@ -156,6 +156,18 @@ def get_keys_sorted():
             print(i) #number of files you have dealt with
 
 #GET DATA AND MODELS
+def remove_anomalies(Energy_list, L_list): #this takes results that different from the spread by a value of more than 500 and considers them anomalous.
+    Energy_ave = sum(Energy_list)/len(Energy_list)
+    Energy_list_new = []
+    L_list_new = []
+    for i in range(len(Energy_list)): #checking for strange deviations from the normal
+        if abs(Energy_list[i]-Energy_ave)>100: #if the difference is too significant discard 
+            Energy_ave = Energy_ave
+        else:
+            Energy_list_new.append(Energy_list[i])
+            L_list_new.append(L_list[i])
+    return(Energy_list_new, L_list_new)
+    
 def get_x_y(file): #Gets a list of Ls and energies for the state required
     L_list = []
     Energy_list = []
@@ -253,7 +265,12 @@ def plot_graph(L_list, Energy_list, Title, energy_freq, energy_values, params2, 
                 plt.plot(energy_values, loren_profile, "g")
                 
             HWHM_l, SD = get_line_broadening_l(params2,matsd)
-            print(f"{Title}: {HWHM_l:.6f} ± {SD:.6f}")
+            if SD > 0.1:
+                print(f"{Title}: {HWHM_l:.6f} ± {SD:.6f} Query_Large_SD")
+            elif HWHM_l >0 and SD/HWHM_l > 1:
+                print(f"{Title}: {HWHM_l:.6f} ± {SD:.6f} Query_Large_Rel_SD")
+            else:
+                print(f"{Title}: {HWHM_l:.6f} ± {SD:.6f}")
 
             
 #Run Program
@@ -281,6 +298,8 @@ def analysis():
         try:
             if name_file_split[1] == state:
                 L_list, Energy_list, Title = get_x_y(file)
+                (Energy_list, L_list) = remove_anomalies(Energy_list, L_list)
+                remove_anomalies(Energy_list, L_list)
                 if int(name_file_split[4])== 0:
                     energy_freq, energy_values, params2, matsd = get_loren_fit_small(Energy_list)
                 else:
