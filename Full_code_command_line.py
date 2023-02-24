@@ -208,6 +208,18 @@ def get_keys_sorted():
             print(i) # number of files you have dealt with
 
 #GET DATA AND MODELS
+def remove_anomalies(Energy_list, L_list): #this takes results that different from the spread by a value of more than 500 and considers them anomalous.
+    Energy_ave = sum(Energy_list)/len(Energy_list)
+    Energy_list_new = []
+    L_list_new = []
+    for i in range(len(Energy_list)): #checking for strange deviations from the normal
+        if abs(Energy_list[i]-Energy_ave)>100: #if the difference is too significant discard 
+            Energy_ave = Energy_ave
+        else:
+            Energy_list_new.append(Energy_list[i])
+            L_list_new.append(L_list[i])
+    return(Energy_list_new, L_list_new)
+
 def get_x_y(file): #Gets a list of Ls and energies for the state required
     L_list = []
     Energy_list = []
@@ -282,7 +294,6 @@ def get_loren_fit_small(Energy_list): # as above for very thin lines with little
     return energy_freq, energy_values, params2, matsd
 
 def get_line_broadening_l(params2,matsd): #get gamma (HWHM) and standard deviation
-    FWHM = 2*params2[2]
     HWHM = params2[2]
     HWHM = abs(HWHM)
     SD = matsd[2]
@@ -293,7 +304,12 @@ def plot_graph(Title, params2, matsd): #no plotting here because to see on comma
                 params2 = params2
             else:
                 HWHM_l, SD = get_line_broadening_l(params2,matsd)
-                print(f"{Title}: {HWHM_l:.6f} ± {SD:.6f}") #rounding to an appropriate number
+                if SD > 0.1:
+                    print(f"{Title}: {HWHM_l:.6f} ± {SD:.6f} Query_Large_SD")
+                elif HWHM_l >0 and SD/HWHM_l > 1:
+                    print(f"{Title}: {HWHM_l:.6f} ± {SD:.6f} Query_Large_Rel_SD")
+                else:
+                    print(f"{Title}: {HWHM_l:.6f} ± {SD:.6f}") #rounding to an appropriate number and indicating potential states for follow up analysis
            
             
 #Run Program
@@ -321,6 +337,7 @@ def analysis(state):
         try:
             if name_file_split[1] == state:
                 L_list, Energy_list, Title = get_x_y(file)
+                (Energy_list, L_list) = remove_anomalies(Energy_list, L_list)
                 if int(name_file_split[4])== 0:
                     energy_freq, energy_values, params2, matsd = get_loren_fit_small(Energy_list)
                 else:
